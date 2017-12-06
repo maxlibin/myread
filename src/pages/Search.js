@@ -1,7 +1,18 @@
 import React, {Component} from "react";
 import {Link} from 'react-router-dom';
-import {search} from '../BooksAPI';
+import {Debounce} from 'react-throttle';
+import {search, getAll} from '../BooksAPI';
 import BooksList from '../components/BooksList';
+
+const mapBookShelf = (mainBooks, searchBooks) =>
+  searchBooks.map((searchBook) => {
+    const foundMainBook = mainBooks.filter((mainBook) => mainBook.id === searchBook.id);
+
+    return {
+      ...searchBook,
+      shelf: foundMainBook.length ? foundMainBook[0].shelf : "none"
+    }
+  });
 
 export default class Search extends Component {
   constructor(props) {
@@ -11,46 +22,39 @@ export default class Search extends Component {
       books: [],
       error: false,
       errorMsg: null,
-      searchQuery: "",
       isLoading: false,
     }
   }
-  handleOnSearchSubmit = (e) => {
-    e.preventDefault();
+
+  handleOnChange = (e) => {
+    const searchQuery = e.target.value;
+    if (searchQuery === "") {
+      return false;
+    }
 
     this.setState({
       isLoading: true,
     });
 
-    const searchQuery = e.target.searchQuery.value;
-    const _this = this;
+    search(searchQuery, 20).then((searchBooks) => {
+      if (searchBooks.error) {
+        this.setState({
+          error: true,
+          errorMsg: searchBooks.error,
+          isLoading: false,
+        });
 
-    if (searchQuery) {
-      search(searchQuery, 20).then((res) => {
-        if (res.error) {
-          _this.setState({
-            error: true,
-            errorMsg: res.error,
-            isLoading: false,
-          });
-          return false;
-        }
+        return false;
+      }
 
-        _this.setState({
-          books: res,
+      getAll().then((mainBooks) => {
+        this.setState({
+          books: mapBookShelf(mainBooks, searchBooks),
           error: false,
           isLoading: false,
         });
       });
-    }
-  };
-
-  handleOnChange = (e) => {
-    const value = e.target.value;
-
-    this.setState({
-      searchQuery: value,
-    })
+    });
   };
 
   updateBooksSelection = (id) => {
@@ -64,22 +68,19 @@ export default class Search extends Component {
     const {books, error, errorMsg, isLoading} = this.state;
     return (
       <div className="search-books">
-        <form
-          onSubmit={(e) => this.handleOnSearchSubmit(e)}
-        >
-          <div className="search-books-bar">
-            <Link className="close-search" to="/">Close</Link>
-            <div className="search-books-input-wrapper">
+        <div className="search-books-bar">
+          <Link className="close-search" to="/">Close</Link>
+          <div className="search-books-input-wrapper">
+              <Debounce time="400" handler="onChange">
                 <input
                   name="searchQuery"
                   onChange={(e) => this.handleOnChange(e)}
                   type="text"
-                  value={this.state.searchQuery}
                   placeholder="Search by title or author"
                 />
-            </div>
+              </Debounce>
           </div>
-        </form>
+        </div>
         <div className="search-books-results">
           {isLoading && (
             <div className={"bookshelfLoading"}>
