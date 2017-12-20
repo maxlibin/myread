@@ -13,7 +13,7 @@ const Select = (props) => {
   )
 };
 
-Select.prototype = {
+Select.propType = {
   currentValue: PropTypes.string.isRequired,
   onChange: PropTypes.func.isRequired,
 };
